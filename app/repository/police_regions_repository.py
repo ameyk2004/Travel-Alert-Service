@@ -1,6 +1,4 @@
 import json
-
-from bson import ObjectId
 from app.database.supabase import supabase
 from app.database.mongodb import db
 
