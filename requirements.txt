@@ -1,6 +1,5 @@
 pymongo
 pydantic
-bson
 fastapi
 sqlalchemy
 fastapi_mail
