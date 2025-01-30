@@ -1,3 +1,11 @@
 pymongo
 pydantic
 bson
+fastapi
+sqlalchemy
+fastapi_mail
+python-jose
+python-dotenv
+anthropic
+ollama
+uvicorn
