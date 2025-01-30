@@ -4,9 +4,9 @@ from app.models.location_models import UserLocationData
 
 router = APIRouter(
     tags=['alive routes'],
-    prefix='/alive'
+    prefix=''
 )
 
-router.get('/keep-alive')
+@router.get("/keep-alive")
 def keep_alive():
-    return {"message" : "I am Alive"}
+    return {"message": "I am Alive"}
