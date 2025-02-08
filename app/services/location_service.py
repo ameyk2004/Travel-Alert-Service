@@ -19,6 +19,7 @@ notification_client = Guardian360NotificationClient(
     base_url="http://143.110.183.53/notification-service"
 )
 
+
 class LocationService:
     
     @staticmethod
@@ -33,17 +34,6 @@ class LocationService:
 
         # Check if user exists and also check if we should update the db after timeout specified by UserCacheRepository.LOCATION_TTL
         if UserCacheRepository.should_update_db(user_id=userID):
-            
-            # Update the location in Database
-            CurrentLocationRepository.update_location(
-                user_id=userID, 
-                latitude=latitude, 
-                longitude=longitude, 
-                timestamp=timestamp
-            )
-            print(f"Location updated in DATABASE: UserID {userID}, Lat {latitude}, Long {longitude}, Time {timestamp}")
-
-            # Update the police region in cache
             police_region = PoliceRegionsRepository.find_police_region(latitude, longitude)
             print(police_region)
             if police_region.get("status") != "success":
@@ -51,6 +41,19 @@ class LocationService:
                 police_region["_id"] = None
 
             police_region_id = police_region['_id']
+
+            # Update the location in Database
+            CurrentLocationRepository.update_location(
+                user_id=userID, 
+                latitude=latitude, 
+                longitude=longitude, 
+                timestamp=timestamp,
+                police_region_id=police_region_id
+            )
+            print(f"Location updated in DATABASE: UserID {userID}, Lat {latitude}, Long {longitude}, Time {timestamp}, Police Region ID {police_region_id}")
+
+            # Update the police region in cache
+
             UserCacheRepository.set_police_region(
                 user_id=userID, 
                 police_region_id=police_region_id
@@ -98,7 +101,9 @@ class LocationService:
     @staticmethod
     def handle_travel_mode(userID, travel_details, timestamp, current_latitude, current_longitude):
         
-        THRESHOLD_DISTANCE = 400  # in metres
+        THRESHOLD_DISTANCE = 50  # in metres
+        
+        print(travel_details)
         if not travel_details:
             print("Travel Mode Off")
             return False
@@ -144,7 +149,12 @@ class LocationService:
         if distance_to_destination < THRESHOLD_DISTANCE:
             print("\n\n\nTurning off Travel Mode Automatically")
             print("You have reached your destination !!!")
-            TravelModeDetailsRepository.turnOffTravelMode(userID)
+            # TravelModeDetailsRepository.turnOffTravelMode(userID)
+            notification_client.send_generic_notification(
+                event_from="guardian360.location_service",
+                recipient_ids=[userID],
+                message="You have reached your destination. You can now turn off travel mode"
+            )
             return False
         return True
 
@@ -212,8 +222,8 @@ class LocationService:
         notification_client.send_travel_alert_notification(
             user_id=userID,
             message= f"{user_details['first_name']} is traveling. You'll be notified again in {frequency} mins.",
-            email_message=f"""{user_details['first_name']} has started traveling. You can track their journey in real time via our app.Stay updated with live location and notifications.\n\nSource Location\n{source_location}\n\Destination Location\n{destination_location}"""
-        )
+            email_message=f"""{user_details['first_name']} has started traveling. You can track their journey in real time via our app.<br><br>Stay updated with live location and notifications.<hr>Location Details : Click to view<br><br><a href =\"{source_location}\">Source Location</a><br><br><a href =\"{destination_location}\">Destination Location</a>"""
+)
 
     @staticmethod
     def _send_periodic_travel_notification(userID, source_lat, source_long, dest_lat, dest_long, frequency, timestamp):
@@ -257,6 +267,12 @@ class LocationService:
             elif result is False:
                 return False  # Travel mode already off
             else:
+                user = UsersRepository.get_user_by_id(user_id=userID)
+                user_name = user['first_name'] + user['last_name']
+                notification_client.send_travel_alert_notification(
+                    user_id=userID,
+                    message=f"{user_name} turned off travel mode"
+                )
                 return True  # Successfully turned off travel mode
 
         except Exception as e:
